@@ -1,0 +1,63 @@
+Q: What is the time complexity of binary search?
+A) O(n)
+B) O(log n)
+C) O(n log n)
+D) O(1)
+ANSWER: B
+EXPLANATION: Binary search halves the search space each step, giving O(log n) time complexity.
+
+Q: Which data structure uses LIFO order?
+A) Queue
+B) Array
+C) Stack
+D) Linked List
+ANSWER: C
+EXPLANATION: Stack follows Last In First Out — the last pushed element is the first to be popped.
+
+Q: What is the worst-case time complexity of Bubble Sort?
+A) O(n log n)
+B) O(n)
+C) O(n²)
+D) O(log n)
+ANSWER: C
+EXPLANATION: Bubble Sort compares adjacent elements and swaps them, resulting in O(n²) in the worst case.
+
+Q: Which traversal gives nodes of a BST in sorted order?
+A) Preorder
+B) Postorder
+C) Level order
+D) Inorder
+ANSWER: D
+EXPLANATION: Inorder traversal (Left → Root → Right) visits BST nodes in ascending sorted order.
+
+Q: What is the space complexity of a recursive DFS on a graph with V vertices?
+A) O(1)
+B) O(V)
+C) O(V²)
+D) O(E)
+ANSWER: B
+EXPLANATION: DFS uses the call stack which can go as deep as V vertices in the worst case.
+
+Q: Which data structure is used to implement BFS?
+A) Stack
+B) Priority Queue
+C) Queue
+D) Array
+ANSWER: C
+EXPLANATION: BFS explores nodes level by level, using a Queue to process them in FIFO order.
+
+Q: What does a hash collision mean?
+A) Two keys map to the same hash value
+B) A key is deleted from the hash table
+C) The hash table is full
+D) Hash function fails to compute
+ANSWER: A
+EXPLANATION: A hash collision occurs when two different keys produce the same hash index.
+
+Q: What is the height of a balanced binary tree with n nodes?
+A) O(n)
+B) O(n²)
+C) O(log n)
+D) O(1)
+ANSWER: C
+EXPLANATION: A balanced binary tree has height O(log n) because each level roughly doubles the nodes.
