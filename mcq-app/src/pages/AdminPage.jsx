@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuestions } from "../hooks/useQuestions";
 import { parseQuestionsFromText, SAMPLE_TEXT_FORMAT } from "../utils/parseQuestions";
 

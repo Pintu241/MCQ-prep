@@ -1,4 +1,4 @@
-const API_BASE = "http://localhost:5000/api";
+const API_BASE = import.meta.env.VITE_API_BASE || "/api";
 
 export async function fetchSubjects() {
   const res = await fetch(`${API_BASE}/subjects`);
