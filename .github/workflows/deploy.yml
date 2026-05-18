@@ -1,0 +1,169 @@
+# ═══════════════════════════════════════════════════════════════
+#  .github/workflows/deploy.yml
+#
+#  GitHub Actions pipeline — runs automatically on every push to main.
+#  This is simpler than Jenkins for beginners.
+#  You can use this OR Jenkins — pick one.
+#
+#  Setup:
+#    In GitHub → Settings → Secrets → Actions, add:
+#      DOCKERHUB_USERNAME
+#      DOCKERHUB_TOKEN
+#      AWS_ACCESS_KEY_ID
+#      AWS_SECRET_ACCESS_KEY
+#      EC2_HOST              (your EC2 public IP)
+#      EC2_SSH_KEY           (private key contents: cat ~/.ssh/mcq-prep-key)
+#      JWT_SECRET
+#      MONGO_URI             (your MongoDB Atlas connection string)
+#      S3_BUCKET_NAME
+# ═══════════════════════════════════════════════════════════════
+
+name: MCQ-prep CI/CD
+
+on:
+  push:
+    branches: [main]          # Triggers on push to main branch
+  pull_request:
+    branches: [main]          # Also runs checks on Pull Requests
+
+env:
+  BACKEND_IMAGE:  ${{ secrets.DOCKERHUB_USERNAME }}/mcq-backend
+  FRONTEND_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/mcq-frontend
+
+jobs:
+
+  # ─────────────────────────────────────────────
+  # JOB 1: Test & Build
+  # ─────────────────────────────────────────────
+  build:
+    name: Build & Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: mcq-backend/package-lock.json
+
+      - name: Install backend dependencies
+        working-directory: mcq-backend
+        run: npm install
+
+      - name: Run backend tests
+        working-directory: mcq-backend
+        run: |
+          # npm test   ← Uncomment when you add tests
+          echo "Tests skipped — add Jest tests to enable this step"
+
+      - name: Install frontend dependencies
+        working-directory: mcq-app
+        run: npm install
+
+      - name: Build React app
+        working-directory: mcq-app
+        env:
+          VITE_API_URL: http://${{ secrets.EC2_HOST }}:5000
+        run: npm run build
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: react-build
+          path: mcq-app/dist/
+
+  # ─────────────────────────────────────────────
+  # JOB 2: Docker Build & Push (only on main)
+  # ─────────────────────────────────────────────
+  docker:
+    name: Docker Build & Push
+    needs: build                   # Only runs if Job 1 succeeds
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build & push backend image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/Dockerfile.backend
+          push: true
+          tags: |
+            ${{ env.BACKEND_IMAGE }}:latest
+            ${{ env.BACKEND_IMAGE }}:${{ github.sha }}
+
+      - name: Build & push frontend image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/Dockerfile.frontend
+          push: true
+          tags: |
+            ${{ env.FRONTEND_IMAGE }}:latest
+            ${{ env.FRONTEND_IMAGE }}:${{ github.sha }}
+
+  # ─────────────────────────────────────────────
+  # JOB 3: Deploy (only on main after Docker push)
+  # ─────────────────────────────────────────────
+  deploy:
+    name: Deploy to AWS
+    needs: docker
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download React build
+        uses: actions/download-artifact@v4
+        with:
+          name: react-build
+          path: mcq-app/dist/
+
+      - name: Deploy backend to EC2
+        uses: appleboy/ssh-action@v1
+        with:
+          host:        ${{ secrets.EC2_HOST }}
+          username:    ec2-user
+          key:         ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            docker pull ${{ env.BACKEND_IMAGE }}:latest
+            docker stop mcq-backend || true
+            docker rm   mcq-backend || true
+            docker run -d \
+              --name mcq-backend \
+              --restart unless-stopped \
+              -p 5000:5000 \
+              -e PORT=5000 \
+              -e NODE_ENV=production \
+              -e MONGO_URI="${{ secrets.MONGO_URI }}" \
+              -e JWT_SECRET="${{ secrets.JWT_SECRET }}" \
+              ${{ env.BACKEND_IMAGE }}:latest
+            docker image prune -f
+            echo "Backend deployed!"
+
+      - name: Upload React build to S3
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-south-1
+
+      - name: Sync to S3
+        run: |
+          aws s3 sync mcq-app/dist/ s3://${{ secrets.S3_BUCKET_NAME }}/ \
+            --delete \
+            --cache-control "max-age=86400"
+          echo "Frontend deployed to S3!"

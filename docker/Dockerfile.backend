@@ -1,0 +1,32 @@
+# ─────────────────────────────────────────────
+# Stage 1: Install dependencies
+# ─────────────────────────────────────────────
+FROM node:18-alpine AS deps
+
+# Set working directory inside the container
+WORKDIR /app
+
+# Copy only package files first (faster builds — Docker caches this layer)
+COPY mcq-backend/package*.json ./
+
+# Install only production dependencies
+RUN npm install --only=production
+
+# ─────────────────────────────────────────────
+# Stage 2: Run the app
+# ─────────────────────────────────────────────
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Copy installed node_modules from Stage 1
+COPY --from=deps /app/node_modules ./node_modules
+
+# Copy the rest of the backend source code
+COPY mcq-backend/ .
+
+# Tell Docker which port this app listens on
+EXPOSE 5000
+
+# Start the server
+CMD ["node", "src/server.js"]

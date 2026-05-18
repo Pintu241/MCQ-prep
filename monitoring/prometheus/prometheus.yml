@@ -1,0 +1,45 @@
+# ═══════════════════════════════════════════════════════════════
+#  monitoring/prometheus/prometheus.yml
+#
+#  Prometheus scrapes metrics from your Node.js backend.
+#
+#  To expose metrics from Node.js, add to mcq-backend:
+#    npm install prom-client
+#  Then in server.js:
+#    const client = require('prom-client');
+#    client.collectDefaultMetrics();
+#    app.get('/metrics', (req, res) => {
+#      res.set('Content-Type', client.register.contentType);
+#      client.register.metrics().then(m => res.send(m));
+#    });
+# ═══════════════════════════════════════════════════════════════
+
+global:
+  scrape_interval:     15s   # Collect metrics every 15 seconds
+  evaluation_interval: 15s   # Evaluate alerting rules every 15 seconds
+
+scrape_configs:
+
+  # ── Prometheus monitors itself ─────────────────────────────
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # ── Your Node.js backend ───────────────────────────────────
+  - job_name: 'mcq-backend'
+    static_configs:
+      - targets: ['backend:5000']   # "backend" = Docker service name
+    metrics_path: '/metrics'        # The endpoint you added to server.js
+
+  # ── MongoDB Exporter (optional but recommended) ────────────
+  # Install: docker run -d -p 9216:9216 percona/mongodb_exporter:0.40
+  - job_name: 'mongodb'
+    static_configs:
+      - targets: ['mongo-exporter:9216']
+
+  # ── Node Exporter (monitors the EC2 server itself) ─────────
+  # CPU, memory, disk usage of the EC2 machine
+  # Install on EC2: sudo yum install -y node_exporter && sudo systemctl start node_exporter
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['YOUR_EC2_IP:9100']

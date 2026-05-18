@@ -1,0 +1,85 @@
+# ═══════════════════════════════════════════════════════════════
+#  kubernetes/backend-deployment.yaml
+#
+#  What this file does:
+#    • Creates 2 copies (replicas) of your Node.js backend pod
+#    • Creates a Service so other pods can reach the backend
+#    • Loads secrets from a Kubernetes Secret (not hardcoded!)
+#
+#  Apply with: kubectl apply -f kubernetes/
+# ═══════════════════════════════════════════════════════════════
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mcq-backend
+  labels:
+    app: mcq-backend
+spec:
+  replicas: 2                  # Run 2 copies for high availability
+  selector:
+    matchLabels:
+      app: mcq-backend
+  template:
+    metadata:
+      labels:
+        app: mcq-backend
+    spec:
+      containers:
+        - name: backend
+          image: YOUR_DOCKERHUB_USERNAME/mcq-backend:latest
+          # ↑ Replace with your image e.g. pintu241/mcq-backend:latest
+          ports:
+            - containerPort: 5000
+          env:
+            - name: PORT
+              value: "5000"
+            - name: NODE_ENV
+              value: "production"
+            - name: MONGO_URI
+              valueFrom:
+                secretKeyRef:
+                  name: mcq-secrets    # kubectl create secret generic mcq-secrets ...
+                  key: mongo-uri
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: mcq-secrets
+                  key: jwt-secret
+          # ── Health checks ────────────────────────────────────
+          # Kubernetes restarts the pod if these fail
+          livenessProbe:
+            httpGet:
+              path: /api/subjects    # Returns 200 when healthy
+              port: 5000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /api/subjects
+              port: 5000
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          # ── Resource limits ──────────────────────────────────
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "500m"
+
+---
+# ── Service: Exposes backend to other pods inside the cluster ──
+apiVersion: v1
+kind: Service
+metadata:
+  name: mcq-backend-service
+spec:
+  selector:
+    app: mcq-backend
+  ports:
+    - protocol: TCP
+      port: 5000
+      targetPort: 5000
+  type: ClusterIP    # Internal only — nginx proxy handles external traffic

@@ -1,0 +1,217 @@
+// ═══════════════════════════════════════════════════════════════
+//  Jenkinsfile  —  CI/CD Pipeline for MCQ-prep
+//
+//  Stages:
+//    1. Checkout     ← Pull latest code from GitHub
+//    2. Install      ← npm install for backend & frontend
+//    3. Test         ← Run backend tests
+//    4. Build        ← npm run build (React)
+//    5. Docker Build ← Build backend + frontend images
+//    6. Docker Push  ← Push images to DockerHub
+//    7. Deploy       ← SSH into EC2 and pull new images
+//    8. S3 Upload    ← Upload React build to S3
+//
+//  Prerequisites in Jenkins:
+//    • Credentials: dockerhub-creds (Username + Password)
+//    • Credentials: aws-creds (AWS Access Key ID + Secret)
+//    • Credentials: ec2-ssh-key (SSH Private Key)
+//    • Credentials: mcq-env-file (Secret File — your .env)
+// ═══════════════════════════════════════════════════════════════
+
+pipeline {
+    agent any
+
+    environment {
+        // DockerHub username (change this to yours)
+        DOCKER_USER      = 'pintu241'
+        BACKEND_IMAGE    = "${DOCKER_USER}/mcq-backend"
+        FRONTEND_IMAGE   = "${DOCKER_USER}/mcq-frontend"
+
+        // S3 bucket name (from terraform output)
+        S3_BUCKET        = 'mcq-prep-frontend-XXXX'
+
+        // EC2 public IP (from terraform output)
+        EC2_HOST         = 'YOUR_EC2_PUBLIC_IP'
+        EC2_USER         = 'ec2-user'
+
+        // Git commit SHA as the Docker image tag (unique per build)
+        IMAGE_TAG        = "${env.GIT_COMMIT?.take(7) ?: 'latest'}"
+    }
+
+    stages {
+
+        // ── Stage 1: Checkout ─────────────────────────────────
+        stage('Checkout') {
+            steps {
+                echo '📥 Pulling code from GitHub...'
+                checkout scm
+            }
+        }
+
+        // ── Stage 2: Install Dependencies ─────────────────────
+        stage('Install Dependencies') {
+            parallel {
+                stage('Backend deps') {
+                    steps {
+                        dir('mcq-backend') {
+                            sh 'npm install'
+                        }
+                    }
+                }
+                stage('Frontend deps') {
+                    steps {
+                        dir('mcq-app') {
+                            sh 'npm install'
+                        }
+                    }
+                }
+            }
+        }
+
+        // ── Stage 3: Run Tests ─────────────────────────────────
+        stage('Test') {
+            steps {
+                dir('mcq-backend') {
+                    sh '''
+                        echo "Running backend tests..."
+                        # npm test   ← Uncomment when you add tests
+                        echo "No tests configured yet — skipping"
+                    '''
+                }
+            }
+        }
+
+        // ── Stage 4: Build React App ───────────────────────────
+        stage('Build Frontend') {
+            steps {
+                dir('mcq-app') {
+                    sh '''
+                        echo "Building React app..."
+                        npm run build
+                        echo "Build complete — files in mcq-app/dist/"
+                    '''
+                }
+            }
+        }
+
+        // ── Stage 5: Build Docker Images ───────────────────────
+        stage('Docker Build') {
+            steps {
+                sh '''
+                    echo "Building backend Docker image..."
+                    docker build -f docker/Dockerfile.backend \
+                        -t ${BACKEND_IMAGE}:${IMAGE_TAG} \
+                        -t ${BACKEND_IMAGE}:latest .
+
+                    echo "Building frontend Docker image..."
+                    docker build -f docker/Dockerfile.frontend \
+                        -t ${FRONTEND_IMAGE}:${IMAGE_TAG} \
+                        -t ${FRONTEND_IMAGE}:latest .
+                '''
+            }
+        }
+
+        // ── Stage 6: Push to DockerHub ──────────────────────────
+        stage('Docker Push') {
+            steps {
+                withCredentials([usernamePassword(
+                    credentialsId: 'dockerhub-creds',
+                    usernameVariable: 'DOCKER_LOGIN_USER',
+                    passwordVariable: 'DOCKER_LOGIN_PASS'
+                )]) {
+                    sh '''
+                        echo "$DOCKER_LOGIN_PASS" | docker login -u "$DOCKER_LOGIN_USER" --password-stdin
+
+                        docker push ${BACKEND_IMAGE}:${IMAGE_TAG}
+                        docker push ${BACKEND_IMAGE}:latest
+
+                        docker push ${FRONTEND_IMAGE}:${IMAGE_TAG}
+                        docker push ${FRONTEND_IMAGE}:latest
+
+                        docker logout
+                    '''
+                }
+            }
+        }
+
+        // ── Stage 7: Deploy Backend to EC2 ─────────────────────
+        stage('Deploy to EC2') {
+            steps {
+                withCredentials([
+                    sshUserPrivateKey(
+                        credentialsId: 'ec2-ssh-key',
+                        keyFileVariable: 'SSH_KEY'
+                    ),
+                    file(
+                        credentialsId: 'mcq-env-file',
+                        variable: 'ENV_FILE'
+                    )
+                ]) {
+                    sh '''
+                        # Copy .env file to EC2
+                        scp -i $SSH_KEY -o StrictHostKeyChecking=no \
+                            $ENV_FILE ${EC2_USER}@${EC2_HOST}:/home/${EC2_USER}/.env
+
+                        # SSH into EC2 and deploy new container
+                        ssh -i $SSH_KEY -o StrictHostKeyChecking=no \
+                            ${EC2_USER}@${EC2_HOST} << 'REMOTE_COMMANDS'
+                                # Pull the new image
+                                docker pull ${BACKEND_IMAGE}:latest
+
+                                # Stop old container (ignore error if not running)
+                                docker stop mcq-backend || true
+                                docker rm   mcq-backend || true
+
+                                # Start new container
+                                docker run -d \
+                                    --name mcq-backend \
+                                    --restart unless-stopped \
+                                    -p 5000:5000 \
+                                    --env-file /home/ec2-user/.env \
+                                    ${BACKEND_IMAGE}:latest
+
+                                # Clean up old images
+                                docker image prune -f
+                                echo "Deployment complete!"
+REMOTE_COMMANDS
+                    '''
+                }
+            }
+        }
+
+        // ── Stage 8: Upload React build to S3 ──────────────────
+        stage('Deploy Frontend to S3') {
+            steps {
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding',
+                    credentialsId: 'aws-creds',
+                    accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                    secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+                ]]) {
+                    sh '''
+                        echo "Uploading React build to S3..."
+                        aws s3 sync mcq-app/dist/ s3://${S3_BUCKET}/ \
+                            --region ap-south-1 \
+                            --delete \
+                            --cache-control "max-age=86400"
+
+                        echo "Frontend live at: http://${S3_BUCKET}.s3-website.ap-south-1.amazonaws.com"
+                    '''
+                }
+            }
+        }
+    }
+
+    // ── Post actions (run after all stages) ───────────────────
+    post {
+        success {
+            echo '✅ Pipeline succeeded! MCQ-prep is deployed.'
+        }
+        failure {
+            echo '❌ Pipeline failed! Check the logs above.'
+        }
+        always {
+            // Clean workspace to save disk space
+            cleanWs()
+        }
+    }
+}
