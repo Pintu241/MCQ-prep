@@ -67,7 +67,7 @@ jobs:
       - name: Build React app
         working-directory: mcq-app
         env:
-          VITE_API_URL: http://${{ secrets.EC2_HOST }}:5000
+          VITE_API_URL: https://${{ secrets.EC2_HOST }}:5000/api
         run: npm run build
 
       - name: Upload build artifact
