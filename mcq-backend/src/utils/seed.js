@@ -258,6 +258,30 @@ const seedData = [
     ],
   },
 
+  {
+    id: "devops",
+    name: "DevOps",
+    icon: "☁️",
+    color: "#22c55e",
+    colorBg: "rgba(34,197,94,0.12)",
+    category: "devops",
+    badge: "NEW",
+    description: "CI/CD, containers, IaC, cloud platforms, monitoring, and automation best practices.",
+    tags: ["CI/CD", "Docker", "Kubernetes", "Terraform", "Monitoring"],
+    questions: [
+      { question: "What is the primary goal of CI/CD?", options: ["Manage project requirements", "Automate code deployment and testing", "Secure network traffic", "Design database schemas"], correct: 1, explanation: "CI/CD automates building, testing, and deploying code to reduce manual errors and deliver faster releases.", topic: "CI/CD", difficulty: "Easy" },
+      { question: "Which tool is commonly used for containerization?", options: ["Terraform", "Docker", "Jenkins", "Ansible"], correct: 1, explanation: "Docker packages applications and dependencies into portable containers.", topic: "Containers", difficulty: "Easy" },
+      { question: "What does 'Infrastructure as Code' mean?", options: ["Writing code for applications only", "Managing infrastructure using declarative configuration files", "Deploying apps manually", "Using code comments to document servers"], correct: 1, explanation: "Infrastructure as Code uses files like Terraform or CloudFormation templates to provision infrastructure automatically.", topic: "IaC", difficulty: "Medium" },
+      { question: "What is a Kubernetes Pod?", options: ["A virtual machine", "A group of one or more containers with shared networking", "A deployment pipeline", "A logging tool"], correct: 1, explanation: "A Pod is the smallest deployable unit in Kubernetes containing one or more containers.", topic: "Kubernetes", difficulty: "Easy" },
+      { question: "What is the purpose of a Canary deployment?", options: ["Delete old releases", "Test changes with a small subset of users before full rollout", "Back up databases", "Scale pods automatically"], correct: 1, explanation: "Canary deployments release changes to a small segment of traffic first to catch issues early.", topic: "Deployments", difficulty: "Medium" },
+      { question: "Which tool is used for provisioning cloud resources declaratively?", options: ["Jenkins", "Terraform", "Git", "Prometheus"], correct: 1, explanation: "Terraform provisions cloud infrastructure using declarative configuration files.", topic: "IaC", difficulty: "Easy" },
+      { question: "What is the difference between monitoring and logging?", options: ["They are the same", "Monitoring observes system health; logging records detailed events", "Logging stops services; monitoring starts them", "Monitoring only for security"], correct: 1, explanation: "Monitoring tracks metrics and alerts; logging records events and details for troubleshooting.", topic: "Monitoring", difficulty: "Medium" },
+      { question: "Which DevOps practice helps teams manage infrastructure changes safely?", options: ["Manual deployment", "Immutable infrastructure", "Untracked configuration", "Ad hoc server setup"], correct: 1, explanation: "Immutable infrastructure means replacing servers instead of changing them in place, reducing configuration drift.", topic: "Infrastructure", difficulty: "Medium" },
+      { question: "What does GitOps mean?", options: ["Deploying from a git repository using automation", "Using Git for version control only", "A security framework", "A monitoring tool"], correct: 0, explanation: "GitOps uses Git as the single source of truth for declarative infrastructure and application deployments.", topic: "Automation", difficulty: "Medium" },
+      { question: "What role does continuous testing serve in DevOps?", options: ["Only manual QA", "Running automated tests on every code change", "Deploying unrelated services", "Monitoring server uptime"], correct: 1, explanation: "Continuous testing validates changes automatically as part of the CI/CD pipeline.", topic: "CI/CD", difficulty: "Medium" },
+    ],
+  },
+
   // ─── 11. C Programming ────────────────────────────────────────
   {
     id: "c-programming",

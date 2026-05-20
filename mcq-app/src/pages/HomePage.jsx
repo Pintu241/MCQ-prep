@@ -7,6 +7,7 @@ const CATEGORIES = [
   { id: "programming", label: "Programming" },
   { id: "systems", label: "Systems" },
   { id: "theory", label: "Theory" },
+  { id: "devops", label: "DevOps" },
 ];
 
 export default function HomePage({ onSelectSubject, onAdminClick, user, onLogout }) {

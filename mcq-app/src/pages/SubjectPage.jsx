@@ -101,6 +101,16 @@ const GATE_META = {
     { name: "Project Management", tag: "Moderate" },
     { name: "Version Control & DevOps", tag: "Moderate" },
   ]},
+  devops: { marks: "3–5", weightage: "~5%", chapters: [
+    { name: "CI/CD Pipelines", tag: "Most Asked" },
+    { name: "Containers & Docker", tag: "Most Asked" },
+    { name: "Infrastructure as Code", tag: "Important" },
+    { name: "Kubernetes & Orchestration", tag: "Important" },
+    { name: "Monitoring & Logging", tag: "Moderate" },
+    { name: "Cloud Platforms", tag: "Moderate" },
+    { name: "Security & Compliance", tag: "Moderate" },
+    { name: "Automation & SRE", tag: "Moderate" },
+  ]},
   "c-programming": { marks: "4–6", weightage: "~7%", chapters: [
     { name: "Basics & Data Types", tag: "Most Asked" },
     { name: "Control Flow", tag: "Most Asked" },
