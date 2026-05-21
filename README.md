@@ -215,6 +215,3 @@ For deployment and more advanced setup, see `DEPLOYMENT_GUIDE.md`.
 
 ---
 
-## 📝 License
-
-MIT License
